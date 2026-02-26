@@ -515,7 +515,7 @@ def mostrar_sidebar():
 
         st.markdown("---")
         st.markdown(f"**👤 {st.session_state.get('nombre_completo', '')}**")
-        st.markdown(f"🏷️ Rol: **{st.session_state.get('rol', '')}**")
+        st.markdown(f"🛡️ Rol: **{'SECRETARÍA' if st.session_state.get('rol', '') == 'SECRETARIA' else st.session_state.get('rol', '')}**")
         if st.session_state.get("rol") == "EPS":
             st.markdown(f"🏥 EPS: **{st.session_state.get('eps_asignada', '')}**")
         st.markdown("---")
