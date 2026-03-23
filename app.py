@@ -193,11 +193,31 @@ EPS_LISTA = [
     "OTRA (especificar)"
 ]
 
-CICLOS_VITALES = [
-    "Infancia (0-11 años)",
-    "Adolescencia y Juventud (12-28 años)",
-    "Adultez y Vejez (29+ años)"
+CURSOS_VIDA = [
+    "Primera infancia (0-5 años)",
+    "Infancia (6-11 años)",
+    "Adolescencia (12-17 años)",
+    "Juventud (18-28 años)",
+    "Adultez (29-59 años)",
+    "Vejez (60+ años)"
 ]
+
+
+def calcular_curso_vida(edad):
+    """Calcula el curso de vida a partir de la edad."""
+    edad = int(edad) if edad else 0
+    if edad <= 5:
+        return "Primera infancia (0-5 años)"
+    elif edad <= 11:
+        return "Infancia (6-11 años)"
+    elif edad <= 17:
+        return "Adolescencia (12-17 años)"
+    elif edad <= 28:
+        return "Juventud (18-28 años)"
+    elif edad <= 59:
+        return "Adultez (29-59 años)"
+    else:
+        return "Vejez (60+ años)"
 
 TIPOS_DOCUMENTO = ["CC", "TI", "RC", "CE", "PA", "MS"]
 
@@ -561,32 +581,6 @@ def modulo_formulario(spreadsheet):
     </div>
     """, unsafe_allow_html=True)
 
-    # --- Búsqueda previa por documento ---
-    st.markdown("#### 🔍 Búsqueda previa (verificar duplicados)")
-    col_busq1, col_busq2 = st.columns([3, 1])
-    with col_busq1:
-        doc_buscar = st.text_input("Número de documento a buscar", key="busq_doc_form",
-                                   placeholder="Ingrese el documento para verificar si ya existe")
-    with col_busq2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        buscar = st.button("🔍 Buscar", key="btn_buscar_form")
-
-    if buscar and doc_buscar:
-        df = cargar_datos(spreadsheet, forzar=True)
-        df = filtrar_por_rol(df)
-        resultados = buscar_por_documento(df, doc_buscar)
-        if not resultados.empty:
-            st.warning(f"⚠️ Se encontraron **{len(resultados)}** registro(s) con este documento. "
-                       "Considere actualizar el registro existente en 'Editar / Actualizar Caso'.")
-            cols_mostrar = ["nombres", "apellidos", "numero_documento", "eps_reporta",
-                            "municipio_residencia", "estado_caso", "fecha_notificacion_sivigila"]
-            cols_disponibles = [c for c in cols_mostrar if c in resultados.columns]
-            st.dataframe(resultados[cols_disponibles], use_container_width=True, hide_index=True)
-        else:
-            st.success("✅ No se encontraron registros previos con este documento. Puede registrar un nuevo caso.")
-
-    st.markdown("---")
-
     # --- Formulario principal ---
     with st.form("formulario_nuevo_caso", clear_on_submit=True):
         # ---- Sección: Identificación del Caso ----
@@ -602,7 +596,6 @@ def modulo_formulario(spreadsheet):
 
             semana_epi = st.number_input("Semana epidemiológica *", min_value=1, max_value=53, value=1, step=1)
         with col2:
-            ciclo_vital = st.selectbox("Ciclo vital *", options=CICLOS_VITALES)
             intento_previo = st.radio("¿Antecedente de intento previo? *", options=["NO", "SI"], horizontal=True)
 
         # EPS "Otra" - campo adicional
@@ -624,7 +617,12 @@ def modulo_formulario(spreadsheet):
             numero_doc = st.text_input("Número de documento *", placeholder="Solo números")
             sexo = st.selectbox("Sexo *", options=["Masculino", "Femenino", "Indeterminado"])
 
-        municipio = st.selectbox("Municipio de residencia *", options=[""] + MUNICIPIOS_VALLE)
+        col1, col2 = st.columns(2)
+        with col1:
+            municipio = st.selectbox("Municipio de residencia *", options=[""] + MUNICIPIOS_VALLE)
+        with col2:
+            curso_vida = calcular_curso_vida(edad)
+            st.text_input("Curso de vida (automático)", value=curso_vida, disabled=True)
 
         st.markdown("---")
 
@@ -727,51 +725,63 @@ def modulo_formulario(spreadsheet):
                 for err in errores:
                     st.error(f"⚠️ {err}")
             else:
-                # Construir diccionario de datos
-                datos = {
-                    "eps_reporta": eps_final,
-                    "semana_epidemiologica": str(semana_epi),
-                    "ciclo_vital": ciclo_vital,
-                    "intento_previo": intento_previo,
-                    "nombres": nombres.upper().strip(),
-                    "apellidos": apellidos.upper().strip(),
-                    "tipo_documento": tipo_doc,
-                    "numero_documento": numero_doc.strip(),
-                    "edad": str(edad),
-                    "sexo": sexo,
-                    "municipio_residencia": municipio,
-                    "fecha_notificacion_sivigila": str(fecha_notificacion) if fecha_notificacion else "",
-                    "fecha_atencion_medicina": str(fecha_med_gral) if fecha_med_gral else "",
-                    "hospitalizacion": hospitalizacion,
-                    "fecha_alta": str(fecha_alta) if fecha_alta else "",
-                    "valoracion_psicologia": val_psicologia,
-                    "fecha_psicologia": str(fecha_psicologia) if fecha_psicologia else "",
-                    "valoracion_psiquiatria": val_psiquiatria,
-                    "fecha_psiquiatria": str(fecha_psiquiatria) if fecha_psiquiatria else "",
-                    "seguimiento_1": seguimiento_1,
-                    "seguimiento_2": seguimiento_2,
-                    "seguimiento_3": seguimiento_3,
-                    "ruta_salud_mental": ruta_salud_mental,
-                    "asiste_servicios": asiste_servicios,
-                    "seguimiento_7dias_postalta": seg_7dias,
-                    "fecha_seguimiento_postalta": str(fecha_seg_postalta) if fecha_seg_postalta else "",
-                    "num_seguimientos_realizados": str(num_seguimientos),
-                    "abandono_tratamiento": abandono,
-                    "reintento_posterior": reintento,
-                    "estado_caso": estado_caso,
-                    "observaciones": observaciones,
-                    "funcionario_reporta": st.session_state.get("nombre_completo", ""),
-                }
-
-                with st.spinner("Guardando registro..."):
-                    exito, resultado = guardar_registro(spreadsheet, datos)
-
-                if exito:
-                    st.success(f"✅ Registro guardado exitosamente para **{nombres.upper()} {apellidos.upper()}** "
-                               f"(ID: {resultado})")
-                    st.balloons()
+                # Verificar duplicados por número de documento
+                df_check = cargar_datos(spreadsheet, forzar=True)
+                df_check = filtrar_por_rol(df_check)
+                duplicados = buscar_por_documento(df_check, numero_doc)
+                if not duplicados.empty:
+                    st.warning(f"⚠️ Ya existe(n) **{len(duplicados)}** registro(s) con el documento **{numero_doc}**. "
+                               "Si desea actualizar el caso existente, use el módulo 'Editar / Actualizar Caso'.")
+                    cols_mostrar = ["nombres", "apellidos", "numero_documento", "eps_reporta",
+                                    "estado_caso", "fecha_notificacion_sivigila"]
+                    cols_disp = [c for c in cols_mostrar if c in duplicados.columns]
+                    st.dataframe(duplicados[cols_disp], use_container_width=True, hide_index=True)
                 else:
-                    st.error(f"❌ Error al guardar: {resultado}")
+                    # Construir diccionario de datos
+                    datos = {
+                        "eps_reporta": eps_final,
+                        "semana_epidemiologica": str(semana_epi),
+                        "ciclo_vital": calcular_curso_vida(edad),
+                        "intento_previo": intento_previo,
+                        "nombres": nombres.upper().strip(),
+                        "apellidos": apellidos.upper().strip(),
+                        "tipo_documento": tipo_doc,
+                        "numero_documento": numero_doc.strip(),
+                        "edad": str(edad),
+                        "sexo": sexo,
+                        "municipio_residencia": municipio,
+                        "fecha_notificacion_sivigila": str(fecha_notificacion) if fecha_notificacion else "",
+                        "fecha_atencion_medicina": str(fecha_med_gral) if fecha_med_gral else "",
+                        "hospitalizacion": hospitalizacion,
+                        "fecha_alta": str(fecha_alta) if fecha_alta else "",
+                        "valoracion_psicologia": val_psicologia,
+                        "fecha_psicologia": str(fecha_psicologia) if fecha_psicologia else "",
+                        "valoracion_psiquiatria": val_psiquiatria,
+                        "fecha_psiquiatria": str(fecha_psiquiatria) if fecha_psiquiatria else "",
+                        "seguimiento_1": seguimiento_1,
+                        "seguimiento_2": seguimiento_2,
+                        "seguimiento_3": seguimiento_3,
+                        "ruta_salud_mental": ruta_salud_mental,
+                        "asiste_servicios": asiste_servicios,
+                        "seguimiento_7dias_postalta": seg_7dias,
+                        "fecha_seguimiento_postalta": str(fecha_seg_postalta) if fecha_seg_postalta else "",
+                        "num_seguimientos_realizados": str(num_seguimientos),
+                        "abandono_tratamiento": abandono,
+                        "reintento_posterior": reintento,
+                        "estado_caso": estado_caso,
+                        "observaciones": observaciones,
+                        "funcionario_reporta": st.session_state.get("nombre_completo", ""),
+                    }
+
+                    with st.spinner("Guardando registro..."):
+                        exito, resultado = guardar_registro(spreadsheet, datos)
+
+                    if exito:
+                        st.success(f"✅ Registro guardado exitosamente para **{nombres.upper()} {apellidos.upper()}** "
+                                   f"(ID: {resultado})")
+                        st.balloons()
+                    else:
+                        st.error(f"❌ Error al guardar: {resultado}")
 
 
 # ============================================================
@@ -810,7 +820,7 @@ def modulo_dashboard(spreadsheet):
         with col2:
             filtro_municipio = st.multiselect("Municipio", options=sorted(df["municipio_residencia"].unique().tolist()))
         with col3:
-            filtro_ciclo = st.multiselect("Ciclo vital", options=sorted(df["ciclo_vital"].unique().tolist()))
+            filtro_ciclo = st.multiselect("Curso de vida", options=sorted(df["ciclo_vital"].unique().tolist()))
         with col4:
             filtro_estado = st.multiselect("Estado del caso", options=sorted(df["estado_caso"].unique().tolist()))
 
@@ -919,13 +929,13 @@ def modulo_dashboard(spreadsheet):
         col1, col2 = st.columns(2)
 
         with col1:
-            # Distribución por ciclo vital
+            # Distribución por curso de vida
             if not df_filtrado.empty:
                 df_ciclo = df_filtrado["ciclo_vital"].value_counts().reset_index()
-                df_ciclo.columns = ["Ciclo Vital", "Casos"]
-                fig_ciclo = px.pie(df_ciclo, values="Casos", names="Ciclo Vital",
-                                   title="Distribución por Ciclo Vital",
-                                   color_discrete_sequence=["#1B3A5C", "#2E6B9E", "#7FB3D8"],
+                df_ciclo.columns = ["Curso de Vida", "Casos"]
+                fig_ciclo = px.pie(df_ciclo, values="Casos", names="Curso de Vida",
+                                   title="Distribución por Curso de Vida",
+                                   color_discrete_sequence=["#0D2137", "#1B3A5C", "#2E6B9E", "#4A90C4", "#7FB3D8", "#B5D4E9"],
                                    hole=0.4)
                 fig_ciclo.update_traces(textinfo="percent+value")
                 st.plotly_chart(fig_ciclo, use_container_width=True)
@@ -1102,9 +1112,8 @@ def modulo_edicion(spreadsheet):
                 semana_edit = st.number_input("Semana epidemiológica", min_value=1, max_value=53,
                                               value=int(registro.get("semana_epidemiologica", 1) or 1))
             with col2:
-                ciclo_edit = st.selectbox("Ciclo vital", options=CICLOS_VITALES,
-                                          index=CICLOS_VITALES.index(registro.get("ciclo_vital", ""))
-                                          if registro.get("ciclo_vital", "") in CICLOS_VITALES else 0)
+                ciclo_edit = calcular_curso_vida(int(registro.get("edad", 0) or 0))
+                st.text_input("Curso de vida (automático)", value=ciclo_edit, disabled=True, key="edit_ciclo")
                 intento_edit = st.radio("¿Intento previo?",
                                         options=["NO", "SI"],
                                         index=0 if registro.get("intento_previo", "NO") != "SI" else 1,
@@ -1256,7 +1265,7 @@ def modulo_edicion(spreadsheet):
                     "funcionario_reporta": registro.get("funcionario_reporta", ""),
                     "eps_reporta": eps_edit,
                     "semana_epidemiologica": str(semana_edit),
-                    "ciclo_vital": ciclo_edit,
+                    "ciclo_vital": calcular_curso_vida(edad_edit),
                     "intento_previo": intento_edit,
                     "nombres": nombres_edit.upper().strip(),
                     "apellidos": apellidos_edit.upper().strip(),
@@ -1332,7 +1341,7 @@ def modulo_exportacion(spreadsheet):
                                      options=sorted(df["municipio_residencia"].unique().tolist()),
                                      key="exp_mun")
         with col2:
-            exp_ciclo = st.multiselect("Filtrar por Ciclo vital",
+            exp_ciclo = st.multiselect("Filtrar por Curso de vida",
                                        options=sorted(df["ciclo_vital"].unique().tolist()),
                                        key="exp_ciclo")
             exp_estado = st.multiselect("Filtrar por Estado",
@@ -1368,15 +1377,15 @@ def modulo_exportacion(spreadsheet):
 
     with col2:
         st.markdown("#### 📊 Descargar Excel (.xlsx)")
-        st.markdown("*Con hojas separadas por ciclo vital*")
+        st.markdown("*Con hojas separadas por curso de vida*")
 
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
             # Hoja con todos los datos
             df_export.to_excel(writer, sheet_name="TODOS_LOS_DATOS", index=False)
 
-            # Hojas separadas por ciclo vital
-            for ciclo in CICLOS_VITALES:
+            # Hojas separadas por curso de vida
+            for ciclo in CURSOS_VIDA:
                 df_ciclo = df_export[df_export["ciclo_vital"] == ciclo]
                 if not df_ciclo.empty:
                     nombre_hoja = ciclo.split("(")[0].strip()[:31]  # Max 31 chars para nombre de hoja
