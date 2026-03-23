@@ -312,12 +312,11 @@ def cargar_datos(spreadsheet, forzar=False):
         hoja = obtener_hoja_datos(spreadsheet)
         all_values = hoja.get_all_values()
         if len(all_values) > 1:
-            headers = all_values[0]
-            # Usar solo las columnas definidas (ignorar columnas vacías extra)
             num_cols = len(COLUMNAS_DATOS)
-            headers = headers[:num_cols]
-            datos = [row[:num_cols] for row in all_values[1:]]
-            df = pd.DataFrame(datos, columns=headers)
+            # Forzar encabezados definidos (ignorar lo que diga la hoja)
+            # Rellenar filas cortas con cadenas vacías
+            datos = [(row + [''] * num_cols)[:num_cols] for row in all_values[1:]]
+            df = pd.DataFrame(datos, columns=COLUMNAS_DATOS)
             # Eliminar filas completamente vacías
             df = df[df.apply(lambda row: any(str(v).strip() != '' for v in row), axis=1)]
         else:
