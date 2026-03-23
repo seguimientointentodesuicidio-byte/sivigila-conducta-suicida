@@ -515,7 +515,7 @@ def mostrar_sidebar():
 
         st.markdown("---")
         st.markdown(f"**👤 {st.session_state.get('nombre_completo', '')}**")
-        st.markdown(f"🛡️ Rol: **{'SECRETARÍA' if st.session_state.get('rol', '') == 'SECRETARIA' else st.session_state.get('rol', '')}**")
+        st.markdown(f"🏷️ Rol: **{st.session_state.get('rol', '')}**")
         if st.session_state.get("rol") == "EPS":
             st.markdown(f"🏥 EPS: **{st.session_state.get('eps_asignada', '')}**")
         st.markdown("---")
@@ -1433,7 +1433,7 @@ def modulo_gestion_usuarios(spreadsheet):
 
     # --- Crear nuevo usuario ---
     st.markdown("#### ➕ Crear Nuevo Usuario")
-    with st.form("form_nuevo_usuario"):
+    with st.form("form_nuevo_usuario", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
             nuevo_usuario = st.text_input("Nombre de usuario *", placeholder="Ej: digitador.sura")
