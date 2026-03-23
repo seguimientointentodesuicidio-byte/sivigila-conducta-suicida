@@ -780,6 +780,8 @@ def modulo_formulario(spreadsheet):
                         st.success(f"✅ Registro guardado exitosamente para **{nombres.upper()} {apellidos.upper()}** "
                                    f"(ID: {resultado})")
                         st.balloons()
+                        time.sleep(2)
+                        st.rerun()
                     else:
                         st.error(f"❌ Error al guardar: {resultado}")
 
