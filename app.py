@@ -374,11 +374,11 @@ def actualizar_registro(spreadsheet, id_registro, datos_dict, usuario_modifica):
     try:
         hoja = obtener_hoja_datos(spreadsheet)
         # Buscar la fila con el ID
-        celdas = hoja.find_all(id_registro)
+        celdas_col_a = hoja.col_values(1)  # Columna A = id
         fila_num = None
-        for celda in celdas:
-            if celda.col == 1:  # Columna A = id
-                fila_num = celda.row
+        for i, valor in enumerate(celdas_col_a):
+            if valor.strip() == str(id_registro).strip():
+                fila_num = i + 1  # gspread es 1-indexado
                 break
 
         if fila_num is None:
