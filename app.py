@@ -329,6 +329,15 @@ def cargar_datos(spreadsheet, forzar=False):
         return pd.DataFrame(columns=COLUMNAS_DATOS)
 
 
+def col_num_a_letra(n):
+    """Convierte número de columna (1-indexado) a letra(s) de Excel. Ej: 1→A, 27→AA, 36→AJ."""
+    resultado = ""
+    while n > 0:
+        n, residuo = divmod(n - 1, 26)
+        resultado = chr(65 + residuo) + resultado
+    return resultado
+
+
 def generar_id():
     """Genera un ID único basado en timestamp."""
     return f"CS-{datetime.now().strftime('%Y%m%d%H%M%S')}-{int(time.time()*1000) % 10000}"
@@ -347,7 +356,7 @@ def guardar_registro(spreadsheet, datos_dict):
         datos_dict["ultima_modificacion_fecha"] = datos_dict["fecha_digitacion"]
 
         fila = [str(datos_dict.get(col, "")) for col in COLUMNAS_DATOS]
-        hoja.append_row(fila, value_input_option="USER_ENTERED")
+        hoja.append_row(fila, value_input_option="USER_ENTERED", table_range="A1")
 
         # Invalidar caché
         if "_datos_cache_time" in st.session_state:
@@ -380,7 +389,7 @@ def actualizar_registro(spreadsheet, id_registro, datos_dict, usuario_modifica):
 
         fila = [str(datos_dict.get(col, "")) for col in COLUMNAS_DATOS]
         # Actualizar rango completo de la fila
-        rango = f"A{fila_num}:{chr(64 + len(COLUMNAS_DATOS))}{fila_num}"
+        rango = f"A{fila_num}:{col_num_a_letra(len(COLUMNAS_DATOS))}{fila_num}"
         hoja.update(rango, [fila], value_input_option="USER_ENTERED")
 
         # Invalidar caché
