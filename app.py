@@ -374,7 +374,7 @@ def actualizar_registro(spreadsheet, id_registro, datos_dict, usuario_modifica):
     try:
         hoja = obtener_hoja_datos(spreadsheet)
         # Buscar la fila con el ID
-        celdas = hoja.findAll(id_registro)
+        celdas = hoja.find_all(id_registro)
         fila_num = None
         for celda in celdas:
             if celda.col == 1:  # Columna A = id
