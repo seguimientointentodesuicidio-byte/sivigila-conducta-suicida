@@ -1804,14 +1804,6 @@ def modulo_carga_masiva(spreadsheet):
     tipo = detectar_tipo_base(df_raw)
     st.info(f"📋 Tipo de base detectado: **{tipo}**")
 
-    # --- Filtrar solo Valle del Cauca (cod_dpto_r == 76 o ndep_resi == VALLE) ---
-    if "ndep_resi" in df_raw.columns:
-        antes = len(df_raw)
-        df_raw = df_raw[df_raw["ndep_resi"].astype(str).str.upper().str.contains("VALLE", na=False)]
-        filtrados = antes - len(df_raw)
-        if filtrados > 0:
-            st.warning(f"⚠️ Se excluyeron **{filtrados}** registros de otros departamentos. Quedan **{len(df_raw)}** del Valle del Cauca.")
-
     if df_raw.empty:
         st.warning("No hay registros para procesar.")
         return
