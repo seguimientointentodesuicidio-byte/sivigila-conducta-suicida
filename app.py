@@ -1868,25 +1868,40 @@ def modulo_carga_masiva(spreadsheet):
 
     if confirmar:
         hoja = obtener_hoja_datos(spreadsheet)
-        errores = 0
         progreso = st.progress(0)
         estado = st.empty()
 
-        for i, (_, row) in enumerate(df_nuevos.iterrows()):
-            try:
-                fila = [str(row.get(col, "")) for col in COLUMNAS_DATOS]
-                hoja.append_row(fila, value_input_option="USER_ENTERED", table_range="A1")
-            except Exception as e:
-                errores += 1
-                if errores <= 3:
-                    st.warning(f"Error en registro {i+1}: {e}")
-                # Pausa para no saturar la API
-                time.sleep(1)
+        # Preparar todas las filas
+        todas_filas = []
+        for _, row in df_nuevos.iterrows():
+            fila = [str(row.get(col, "")) for col in COLUMNAS_DATOS]
+            todas_filas.append(fila)
 
-            progreso.progress((i + 1) / len(df_nuevos))
-            estado.text(f"Insertando registro {i+1} de {len(df_nuevos)}...")
-            # Pausa entre inserciones para respetar límites de la API de Google Sheets
-            time.sleep(0.5)
+        # Insertar en lotes de 50 para no exceder cuota de API
+        TAMANO_LOTE = 50
+        errores = 0
+        insertados = 0
+
+        for i in range(0, len(todas_filas), TAMANO_LOTE):
+            lote = todas_filas[i:i + TAMANO_LOTE]
+            try:
+                hoja.append_rows(lote, value_input_option="USER_ENTERED", table_range="A1")
+                insertados += len(lote)
+            except Exception as e:
+                errores += len(lote)
+                st.warning(f"Error en lote {i//TAMANO_LOTE + 1}: {e}")
+                # Esperar más tiempo si hay error de cuota
+                time.sleep(30)
+                try:
+                    hoja.append_rows(lote, value_input_option="USER_ENTERED", table_range="A1")
+                    insertados += len(lote)
+                    errores -= len(lote)
+                except:
+                    pass
+
+            progreso.progress(min((i + len(lote)) / len(todas_filas), 1.0))
+            estado.text(f"Insertando lote {i//TAMANO_LOTE + 1} de {(len(todas_filas)-1)//TAMANO_LOTE + 1}...")
+            time.sleep(2)
 
         progreso.empty()
         estado.empty()
@@ -1896,10 +1911,10 @@ def modulo_carga_masiva(spreadsheet):
             st.session_state["_datos_cache_time"] = 0
 
         if errores == 0:
-            st.success(f"🎉 **{len(df_nuevos)}** registros insertados exitosamente.")
+            st.success(f"🎉 **{insertados}** registros insertados exitosamente.")
             st.balloons()
         else:
-            st.warning(f"⚠️ Insertados {len(df_nuevos) - errores} registros. {errores} con errores.")
+            st.warning(f"⚠️ Insertados {insertados} registros. {errores} con errores.")
 
 
 # ============================================================
