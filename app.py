@@ -564,6 +564,7 @@ def mostrar_sidebar():
             "📥 Exportar Datos"
         ]
         if st.session_state.get("rol") == "SECRETARIA":
+            opciones.append("📤 Carga Masiva")
             opciones.append("⚙️ Gestionar Usuarios")
 
         pagina = st.radio("Navegación", opciones, label_visibility="collapsed")
@@ -1493,6 +1494,423 @@ def modulo_gestion_usuarios(spreadsheet):
 
 
 # ============================================================
+# MÓDULO 6: CARGA MASIVA (solo SECRETARÍA)
+# ============================================================
+
+# Diccionario de códigos EAPB → nombre descriptivo
+EAPB_MAP = {
+    "EPS001": "ALIANSALUD", "EPSS01": "ALIANSALUD", "EPSSO1": "ALIANSALUD",
+    "ESS208": "ANAS WAYUU EPSI", "EPSI04": "ANAS WAYUU EPSI",
+    "ESSC62": "ASMET SALUD", "ESS062": "ASMET SALUD",
+    "ESS182": "ASOCIACION INDIGENA DEL CAUCA", "EPSIC3": "ASOCIACION INDIGENA DEL CAUCA",
+    "EPS103": "ASOCIACION INDIGENA DEL CAUCA", "EPSI03": "ASOCIACION INDIGENA DEL CAUCA",
+    "CCF055": "CAJACOPI ATLANTICO",
+    "EPSS34": "CAPITAL SALUD EPSS S.A.S.",
+    "CCF102": "C.C.F. COMFACHOCO",
+    "CCF050": "CONFAORIENTE", "CCFC50": "COMFAORIENTE",
+    "EPS012": "COMFENALCO", "EPSS12": "COMFENALCO",
+    "EPS008": "COMPENSAR E.P.S.", "EPSSO8": "COMPENSAR", "EPSS08": "COMPENSAR",
+    "ESSC24": "COOSALUD", "ESS024": "COOSALUD", "EPSS42": "COOSALUD",
+    "EPSI01": "DUSAKAWI EPSI", "EPS101": "DUSAKAWI EPSI", "EPSIC1": "DUSAKAWI EPSI",
+    "ESS177": "DUSAKAWI EPSI",
+    "ESSC18": "EMSSANAR", "ESS118": "EMSSANAR",
+    "EPS017": "EPS FAMISANAR LTDA.", "EPSS17": "EPS FAMISANAR LTDA.",
+    "EAS027": "FONDO PASIVO SOCIAL FERROCARRILES",
+    "EPSI05": "MALLAMAS EPSI", "EPSIC5": "MALLAMAS EPSI",
+    "ESS207": "MUTUAL SER", "EPSS48": "MUTUAL SER", "ESSCO7": "MUTUAL SER",
+    "ESSC07": "MUTUAL SER",
+    "EPS041": "NUEVA EPS", "EPSS41": "NUEVA EPS", "EPS037": "NUEVA EPS",
+    "EPSS37": "NUEVA EPS", "EPS042": "NUEVA EPS",
+    "EPSI06": "PIJAOS SALUD EPSI",
+    "EPS047": "SALUD MIA", "EPSS46": "SALUD MIA",
+    "EPSS02": "SALUD TOTAL", "EPS002": "SALUD TOTAL", "EPSSO2": "SALUD TOTAL",
+    "EPS005": "SANITAS", "EPSS05": "SANITAS",
+    "CCF002": "SAVIA SALUD", "EPSS40": "SAVIA SALUD", "EPS040": "SAVIA SALUD",
+    "EPS018": "S.O.S.", "EPSS18": "S.O.S.",
+    "EPS010": "SURA", "EPSS10": "SURA", "14-28": "SURA", "37209": "SURA",
+    "13-18": "SURA", "EMP021": "SURA",
+    "I": "INDETERMINADO", "N": "NO ASEGURADO",
+    "EPS003": "CAFESALUD", "EPSS03": "CAFESALUD", "EPSM03": "CAFESALUD",
+    "EPS016": "COOMEVA", "EPSS16": "COOMEVA",
+    "EPS045": "MEDIMAS", "EPS044": "MEDIMAS", "EPSS44": "MEDIMAS", "EPSS45": "MEDIMAS",
+    "EPS013": "SALUDCOOP", "EPSS13": "SALUDCOOP",
+    "EPSC33": "SALUDVIDA", "EPSM33": "SALUDVIDA", "EPS033": "SALUDVIDA",
+    "EPSS33": "SALUDVIDA", "EPS034": "SALUDVIDA",
+    "REFM01": "FUERZAS MILITARES", "RES003": "FUERZAS MILITARES",
+    "REPN01": "POLICIA NACIONAL", "RES001": "POLICIA NACIONAL",
+    "REMG01": "MAGISTERIO",
+    "ESS184": "RESGUARDO INDÍGENA",
+    "EPSS47": "SALUD BOLÍVAR",
+    "EPS023": "CRUZ BLANCA", "EPSS23": "CRUZ BLANCA",
+    "EPS038": "MULTIMEDICAS",
+    "ESSC91": "ECOOPSOS",
+    "EPS022": "CONVIDA",
+    "ESS133": "COMPARTA", "ESSC33": "COMPARTA",
+    "EPSC20": "CAPRECOM",
+    "EMP023": "COLSANITAS",
+}
+
+# Normalización de nombres EAPB → nombres exactos de EPS_LISTA del aplicativo
+NORM_EPS = {
+    "S.O.S.": "SOS (SERVICIO OCCIDENTAL DE SALUD)",
+    "S.O.S": "SOS (SERVICIO OCCIDENTAL DE SALUD)",
+    "EMMSANAR": "EMSSANAR",
+    "COMPENSAR E.P.S.": "COMPENSAR",
+    "EPS FAMISANAR LTDA.": "FAMISANAR",
+    "CAPITAL SALUD EPSS S.A.S.": "CAPITAL SALUD",
+    "C.C.F. COMFACHOCO": "COMFACHOCÓ",
+    "CONFAORIENTE": "COMFAORIENTE",
+    "COMFENALCO": "COMFENALCO VALLE",
+    "SANITAS E.P.S. S.A.": "SANITAS",
+    "EPS SANITAS - CM": "SANITAS",
+    "ASOCIACION INDIGENA DEL CAUCA": "ASOCIACIÓN INDÍGENA DEL CAUCA EPSI",
+    "MALLAMAS - EMPRESA PROMOTORA DE SALUD MALLAMAS EPS INDIGENA": "MALLAMAS EPSI",
+    "ENTIDAD PROMOTORA DE SALUD MALLAMAS EPSI": "MALLAMAS EPSI",
+    "PIJAOS SALUD EPS -I": "PIJAOS SALUD EPSI",
+    "SALUD MIA": "SALUD MÍA",
+    "SAVIA SALUD E.P.S.": "SAVIA SALUD",
+    "SAVIA SALUD SUBSIDIADO": "SAVIA SALUD",
+    "EPS SAVIA SALUD": "SAVIA SALUD",
+    "CAJACOPI ATLANTICO": "CAJACOPI ATLÁNTICO",
+    "CAJA DE DE COMPENSACION FAMILIAR CAJACOPI ATLANTICO": "CAJACOPI ATLÁNTICO",
+    "FONDO DE PASIVO SOCIAL DE FERROCARRILES NACIONALES DE COLOMBIA.": "FONDO PASIVO SOCIAL FERROCARRILES",
+    "ASOCIACIÓN DE CABILDOS INDÍGENAS DEL CESAR 'DUSAKAWI'": "DUSAKAWI EPSI",
+    "ASOCIACION DE CABILDOS INDIGENAS DEL CESAR DUSAKAWI EPSI": "DUSAKAWI EPSI",
+    "ASOCIACIÓN MUTUAL SER EMPRESA SOLIDARIA DE SALUD ESS": "MUTUAL SER",
+}
+
+# Etiquetas para convertir códigos numéricos de la base SAT
+LBL_SI_NO = {1: "SI", 2: "NO"}
+LBL_SEXO = {"M": "Masculino", "F": "Femenino", "I": "Indeterminado"}
+LBL_PAC_HOS = {1: "SI", 2: "NO"}
+
+
+def normalizar_eps(nombre_eapb):
+    """Normaliza el nombre de EAPB al formato de EPS_LISTA del aplicativo."""
+    if not nombre_eapb or str(nombre_eapb).strip() == "":
+        return ""
+    nombre = str(nombre_eapb).strip().upper()
+    # Buscar en normalización
+    for clave, valor in NORM_EPS.items():
+        if clave.upper() == nombre:
+            return valor
+    # Si ya es un nombre válido de EPS_LISTA, devolverlo tal cual
+    if nombre in [e.upper() for e in EPS_LISTA if e != "OTRA (especificar)"]:
+        for e in EPS_LISTA:
+            if e.upper() == nombre:
+                return e
+    # Devolver el original (quedará como EPS no estándar)
+    return nombre_eapb.strip()
+
+
+def detectar_tipo_base(df):
+    """Detecta si es Base Completa o Base SAT."""
+    if "caso_nuevo" in df.columns or "EAPB" in df.columns:
+        return "COMPLETA"
+    if "pac_hos_" in df.columns and "gp_otros" in df.columns:
+        # Verificar si tiene códigos numéricos (SAT) o etiquetas (Completa)
+        sample = df["gp_discapa"].dropna().head(5).tolist()
+        if any(isinstance(v, (int, float)) for v in sample):
+            return "SAT"
+        if any(str(v).strip() in ["1", "2"] for v in sample):
+            return "SAT"
+    return "COMPLETA"
+
+
+def transformar_base(df, tipo_base):
+    """Transforma la base (Completa o SAT) al esquema de COLUMNAS_DATOS del aplicativo."""
+    registros = []
+
+    for _, row in df.iterrows():
+        # --- EPS ---
+        if tipo_base == "COMPLETA" and "EAPB" in df.columns:
+            eps_raw = str(row.get("EAPB", "")).strip()
+        else:
+            cod = str(row.get("cod_ase_", "")).strip()
+            eps_raw = EAPB_MAP.get(cod, cod)
+        eps_final = normalizar_eps(eps_raw)
+
+        # --- Nombres y apellidos ---
+        pri_nom = str(row.get("pri_nom_", "")).strip().upper()
+        seg_nom = str(row.get("seg_nom_", "")).strip().upper()
+        nombres = f"{pri_nom} {seg_nom}".strip()
+
+        pri_ape = str(row.get("pri_ape_", "")).strip().upper()
+        seg_ape = str(row.get("seg_ape_", "")).strip().upper()
+        apellidos = f"{pri_ape} {seg_ape}".strip()
+
+        # --- Edad y curso de vida ---
+        edad_raw = row.get("edad_", 0)
+        try:
+            edad = int(float(str(edad_raw).replace(":", "").strip()))
+        except:
+            edad = 0
+        curso = calcular_curso_vida(edad)
+
+        # --- Sexo ---
+        sexo_raw = str(row.get("sexo_", "")).strip().upper()
+        if tipo_base == "SAT":
+            sexo = LBL_SEXO.get(sexo_raw, sexo_raw)
+        else:
+            if sexo_raw == "M":
+                sexo = "Masculino"
+            elif sexo_raw == "F":
+                sexo = "Femenino"
+            else:
+                sexo = sexo_raw if sexo_raw in ["Masculino", "Femenino", "Indeterminado"] else "Indeterminado"
+
+        # --- Intento previo ---
+        ip_raw = row.get("inten_prev", "")
+        if tipo_base == "SAT":
+            try:
+                ip_val = int(float(str(ip_raw).replace(":", "").strip()))
+                intento = LBL_SI_NO.get(ip_val, "NO")
+            except:
+                intento = "NO"
+        else:
+            intento = "SI" if str(ip_raw).strip().upper() in ["SI", "SÍ", "1"] else "NO"
+
+        # --- Hospitalización ---
+        if tipo_base == "SAT" and "pac_hos_" in df.columns:
+            try:
+                ph = int(float(str(row.get("pac_hos_", "")).replace(":", "").strip()))
+                hosp = LBL_PAC_HOS.get(ph, "NO APLICA")
+            except:
+                hosp = "NO APLICA"
+        else:
+            hosp = "NO APLICA"
+
+        # --- Valoraciones psicología/psiquiatría ---
+        def convertir_si_no(val, es_sat):
+            if es_sat:
+                try:
+                    v = int(float(str(val).replace(":", "").strip()))
+                    return LBL_SI_NO.get(v, "NO")
+                except:
+                    return "NO"
+            else:
+                return "SI" if str(val).strip().upper() in ["SI", "SÍ", "1"] else "NO"
+
+        val_psic = convertir_si_no(row.get("psicologia", ""), tipo_base == "SAT")
+        val_psiq = convertir_si_no(row.get("psiquiatri", ""), tipo_base == "SAT")
+
+        # --- Municipio ---
+        mun = str(row.get("nmun_resi", "")).strip().upper()
+
+        # --- Fechas ---
+        def fmt_fecha(val):
+            if pd.isna(val) or str(val).strip() in ["", "None", "-   -", "NaT"]:
+                return ""
+            try:
+                return pd.to_datetime(val, dayfirst=True, errors="coerce").strftime("%Y-%m-%d")
+            except:
+                return str(val).strip()
+
+        fec_not = fmt_fecha(row.get("fec_not", ""))
+        fec_con = fmt_fecha(row.get("fec_con_", ""))
+        fec_hos = fmt_fecha(row.get("fec_hos_", ""))
+
+        # --- Semana ---
+        try:
+            semana = int(float(str(row.get("semana", 0)).replace(":", "").strip()))
+        except:
+            semana = 0
+
+        # --- Número de documento ---
+        num_doc = str(row.get("num_ide_", "")).strip().replace(".0", "").split(".")[0]
+
+        registro = {
+            "id": generar_id(),
+            "fecha_digitacion": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "funcionario_reporta": "CARGA MASIVA",
+            "eps_reporta": eps_final,
+            "semana_epidemiologica": str(semana),
+            "ciclo_vital": curso,
+            "intento_previo": intento,
+            "nombres": nombres,
+            "apellidos": apellidos,
+            "tipo_documento": str(row.get("tip_ide_", "CC")).strip().upper(),
+            "numero_documento": num_doc,
+            "edad": str(edad),
+            "sexo": sexo,
+            "municipio_residencia": mun,
+            "fecha_notificacion_sivigila": fec_not,
+            "fecha_atencion_medicina": fec_con,
+            "hospitalizacion": hosp,
+            "fecha_alta": fec_hos if hosp == "SI" else "",
+            "valoracion_psicologia": val_psic,
+            "fecha_psicologia": "",
+            "valoracion_psiquiatria": val_psiq,
+            "fecha_psiquiatria": "",
+            "seguimiento_1": "", "seguimiento_2": "", "seguimiento_3": "",
+            "ruta_salud_mental": "EN PROCESO",
+            "asiste_servicios": "SIN CONTACTO",
+            "seguimiento_7dias_postalta": "NO APLICA",
+            "fecha_seguimiento_postalta": "",
+            "num_seguimientos_realizados": "0",
+            "abandono_tratamiento": "SIN INFORMACIÓN",
+            "reintento_posterior": "SIN INFORMACIÓN",
+            "estado_caso": "ACTIVO",
+            "observaciones": f"Carga masiva ({tipo_base}) - {datetime.now().strftime('%Y-%m-%d')}",
+            "ultima_modificacion_por": st.session_state.get("nombre_completo", ""),
+            "ultima_modificacion_fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        registros.append(registro)
+        # Pequeña pausa para IDs únicos
+        time.sleep(0.001)
+
+    return pd.DataFrame(registros)
+
+
+def modulo_carga_masiva(spreadsheet):
+    """Módulo para carga masiva de bases SIVIGILA (Completa o SAT)."""
+    st.markdown("""
+    <div class="main-header">
+        <h1>📤 Carga Masiva de Casos</h1>
+        <p>Importe bases del SIVIGILA (Completa o SAT) al sistema de seguimiento</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if st.session_state.get("rol") != "SECRETARIA":
+        st.error("⛔ Solo el rol SECRETARÍA puede realizar cargas masivas.")
+        return
+
+    st.markdown("""
+    **Instrucciones:**
+    - Suba un archivo Excel (.xlsx/.xls) o CSV con la base de datos del SIVIGILA Evento 356.
+    - El sistema detecta automáticamente si es **Base Completa** (con etiquetas y columna EAPB) o **Base SAT** (códigos numéricos).
+    - Se verifican duplicados contra los registros existentes usando **número de documento + fecha de notificación**.
+    - Solo se insertan los registros nuevos.
+    """)
+
+    archivo = st.file_uploader("Seleccione el archivo", type=["xlsx", "xls", "csv"],
+                                key="carga_masiva_file")
+
+    if archivo is None:
+        return
+
+    # --- Leer archivo ---
+    try:
+        if archivo.name.endswith(".csv"):
+            df_raw = pd.read_csv(archivo, encoding="utf-8-sig")
+        else:
+            df_raw = pd.read_excel(archivo)
+        st.success(f"✅ Archivo leído: **{len(df_raw)}** registros, **{len(df_raw.columns)}** columnas.")
+    except Exception as e:
+        st.error(f"❌ Error al leer el archivo: {e}")
+        return
+
+    # --- Detectar tipo ---
+    tipo = detectar_tipo_base(df_raw)
+    st.info(f"📋 Tipo de base detectado: **{tipo}**")
+
+    # --- Filtrar solo Valle del Cauca (cod_dpto_r == 76 o ndep_resi == VALLE) ---
+    if "ndep_resi" in df_raw.columns:
+        antes = len(df_raw)
+        df_raw = df_raw[df_raw["ndep_resi"].astype(str).str.upper().str.contains("VALLE", na=False)]
+        filtrados = antes - len(df_raw)
+        if filtrados > 0:
+            st.warning(f"⚠️ Se excluyeron **{filtrados}** registros de otros departamentos. Quedan **{len(df_raw)}** del Valle del Cauca.")
+
+    if df_raw.empty:
+        st.warning("No hay registros para procesar.")
+        return
+
+    # --- Transformar ---
+    with st.spinner("Transformando datos al esquema del aplicativo..."):
+        df_transformado = transformar_base(df_raw, tipo)
+
+    st.success(f"✅ **{len(df_transformado)}** registros transformados.")
+
+    # --- Cargar datos existentes y detectar duplicados ---
+    with st.spinner("Verificando duplicados contra la base existente..."):
+        df_existente = cargar_datos(spreadsheet, forzar=True)
+
+    if not df_existente.empty:
+        # Llave: numero_documento + fecha_notificacion_sivigila
+        df_existente["_llave_dup"] = (
+            df_existente["numero_documento"].astype(str).str.strip() + "_" +
+            df_existente["fecha_notificacion_sivigila"].astype(str).str.strip()
+        )
+        df_transformado["_llave_dup"] = (
+            df_transformado["numero_documento"].astype(str).str.strip() + "_" +
+            df_transformado["fecha_notificacion_sivigila"].astype(str).str.strip()
+        )
+
+        llaves_existentes = set(df_existente["_llave_dup"].tolist())
+        mascara_nuevos = ~df_transformado["_llave_dup"].isin(llaves_existentes)
+
+        n_duplicados = (~mascara_nuevos).sum()
+        df_nuevos = df_transformado[mascara_nuevos].drop(columns=["_llave_dup"])
+    else:
+        n_duplicados = 0
+        df_nuevos = df_transformado.drop(columns=["_llave_dup"], errors="ignore")
+
+    # --- Resumen ---
+    st.markdown("---")
+    st.markdown("### 📊 Resumen de la carga")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Registros en el archivo", len(df_raw))
+    with col2:
+        st.metric("Duplicados descartados", n_duplicados)
+    with col3:
+        st.metric("Registros nuevos a insertar", len(df_nuevos))
+
+    if df_nuevos.empty:
+        st.warning("⚠️ Todos los registros ya existen en la base de datos. No hay nada nuevo que insertar.")
+        return
+
+    # Vista previa
+    with st.expander("👁️ Vista previa de registros nuevos"):
+        cols_preview = ["nombres", "apellidos", "numero_documento", "eps_reporta",
+                        "municipio_residencia", "edad", "sexo", "intento_previo",
+                        "fecha_notificacion_sivigila"]
+        cols_disp = [c for c in cols_preview if c in df_nuevos.columns]
+        st.dataframe(df_nuevos[cols_disp], use_container_width=True, hide_index=True)
+
+    # --- Confirmación e inserción ---
+    st.markdown("---")
+    confirmar = st.button(f"✅ Confirmar e insertar {len(df_nuevos)} registros",
+                          type="primary", use_container_width=True)
+
+    if confirmar:
+        hoja = obtener_hoja_datos(spreadsheet)
+        errores = 0
+        progreso = st.progress(0)
+        estado = st.empty()
+
+        for i, (_, row) in enumerate(df_nuevos.iterrows()):
+            try:
+                fila = [str(row.get(col, "")) for col in COLUMNAS_DATOS]
+                hoja.append_row(fila, value_input_option="USER_ENTERED", table_range="A1")
+            except Exception as e:
+                errores += 1
+                if errores <= 3:
+                    st.warning(f"Error en registro {i+1}: {e}")
+                # Pausa para no saturar la API
+                time.sleep(1)
+
+            progreso.progress((i + 1) / len(df_nuevos))
+            estado.text(f"Insertando registro {i+1} de {len(df_nuevos)}...")
+            # Pausa entre inserciones para respetar límites de la API de Google Sheets
+            time.sleep(0.5)
+
+        progreso.empty()
+        estado.empty()
+
+        # Invalidar caché
+        if "_datos_cache_time" in st.session_state:
+            st.session_state["_datos_cache_time"] = 0
+
+        if errores == 0:
+            st.success(f"🎉 **{len(df_nuevos)}** registros insertados exitosamente.")
+            st.balloons()
+        else:
+            st.warning(f"⚠️ Insertados {len(df_nuevos) - errores} registros. {errores} con errores.")
+
+
+# ============================================================
 # FUNCIÓN PRINCIPAL
 # ============================================================
 
@@ -1522,6 +1940,8 @@ def main():
         modulo_edicion(spreadsheet)
     elif pagina == "📥 Exportar Datos":
         modulo_exportacion(spreadsheet)
+    elif pagina == "📤 Carga Masiva":
+        modulo_carga_masiva(spreadsheet)
     elif pagina == "⚙️ Gestionar Usuarios":
         modulo_gestion_usuarios(spreadsheet)
 
