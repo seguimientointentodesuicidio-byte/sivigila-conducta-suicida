@@ -1116,11 +1116,13 @@ def modulo_edicion(spreadsheet):
 
     if id_seleccionado:
         registro = df_resultado[df_resultado["id"] == id_seleccionado].iloc[0].to_dict()
+        # Sufijo dinámico para que los widgets se reinicien al cambiar de paciente
+        ks = f"_{id_seleccionado}"
 
         st.markdown(f"#### Editando: **{registro.get('nombres', '')} {registro.get('apellidos', '')}** "
                     f"(Doc: {registro.get('numero_documento', '')})")
 
-        with st.form("formulario_edicion"):
+        with st.form(f"formulario_edicion{ks}"):
             # ---- Identificación ----
             st.markdown("##### 🏷️ Identificación del Caso")
             col1, col2 = st.columns(2)
@@ -1132,36 +1134,36 @@ def modulo_edicion(spreadsheet):
                                               value=int(registro.get("semana_epidemiologica", 1) or 1))
             with col2:
                 ciclo_edit = calcular_curso_vida(int(registro.get("edad", 0) or 0))
-                st.text_input("Curso de vida (automático)", value=ciclo_edit, disabled=True, key="edit_ciclo")
+                st.text_input("Curso de vida (automático)", value=ciclo_edit, disabled=True, key=f"edit_ciclo{ks}")
                 intento_edit = st.radio("¿Intento previo?",
                                         options=["NO", "SI"],
                                         index=0 if registro.get("intento_previo", "NO") != "SI" else 1,
-                                        horizontal=True, key="edit_intento")
+                                        horizontal=True, key=f"edit_intento{ks}")
 
             # ---- Datos Paciente ----
             st.markdown("##### 👤 Datos del Paciente")
             col1, col2 = st.columns(2)
             with col1:
-                nombres_edit = st.text_input("Nombres", value=registro.get("nombres", ""), key="edit_nombres")
+                nombres_edit = st.text_input("Nombres", value=registro.get("nombres", ""), key=f"edit_nombres{ks}")
                 tipo_doc_edit = st.selectbox("Tipo documento", options=TIPOS_DOCUMENTO,
                                              index=TIPOS_DOCUMENTO.index(registro.get("tipo_documento", "CC"))
                                              if registro.get("tipo_documento", "") in TIPOS_DOCUMENTO else 0)
                 edad_edit = st.number_input("Edad", min_value=0, max_value=120,
-                                            value=int(registro.get("edad", 0) or 0), key="edit_edad")
+                                            value=int(registro.get("edad", 0) or 0), key=f"edit_edad{ks}")
             with col2:
-                apellidos_edit = st.text_input("Apellidos", value=registro.get("apellidos", ""), key="edit_apellidos")
+                apellidos_edit = st.text_input("Apellidos", value=registro.get("apellidos", ""), key=f"edit_apellidos{ks}")
                 num_doc_edit = st.text_input("Número de documento",
-                                             value=str(registro.get("numero_documento", "")), key="edit_numdoc")
+                                             value=str(registro.get("numero_documento", "")), key=f"edit_numdoc{ks}")
                 sexo_edit = st.selectbox("Sexo", options=["Masculino", "Femenino", "Indeterminado"],
                                          index=["Masculino", "Femenino", "Indeterminado"].index(
                                              registro.get("sexo", "Masculino"))
                                          if registro.get("sexo", "") in ["Masculino", "Femenino", "Indeterminado"]
-                                         else 0, key="edit_sexo")
+                                         else 0, key=f"edit_sexo{ks}")
 
             municipio_edit = st.selectbox("Municipio de residencia", options=[""] + MUNICIPIOS_VALLE,
                                           index=(MUNICIPIOS_VALLE.index(registro.get("municipio_residencia", "")) + 1)
                                           if registro.get("municipio_residencia", "") in MUNICIPIOS_VALLE else 0,
-                                          key="edit_mun")
+                                          key=f"edit_mun{ks}")
 
             # ---- Notificación ----
             st.markdown("##### 📋 Notificación y Atención")
@@ -1177,19 +1179,19 @@ def modulo_edicion(spreadsheet):
 
                 fecha_notif_edit = st.date_input("Fecha notificación SIVIGILA",
                                                   value=parse_date_safe(registro.get("fecha_notificacion_sivigila")),
-                                                  key="edit_fecha_notif")
+                                                  key=f"edit_fecha_notif{ks}")
                 hosp_opts = ["NO", "SI", "NO APLICA"]
                 hosp_edit = st.selectbox("Hospitalización", options=hosp_opts,
                                          index=hosp_opts.index(registro.get("hospitalizacion", "NO"))
                                          if registro.get("hospitalizacion", "") in hosp_opts else 0,
-                                         key="edit_hosp")
+                                         key=f"edit_hosp{ks}")
             with col2:
                 fecha_med_edit = st.date_input("Fecha atención medicina general",
                                                value=parse_date_safe(registro.get("fecha_atencion_medicina")),
-                                               key="edit_fecha_med")
+                                               key=f"edit_fecha_med{ks}")
                 fecha_alta_edit = st.date_input("Fecha de alta",
                                                 value=parse_date_safe(registro.get("fecha_alta")),
-                                                key="edit_fecha_alta")
+                                                key=f"edit_fecha_alta{ks}")
 
             # ---- Salud Mental ----
             st.markdown("##### 🧠 Atención en Salud Mental")
@@ -1199,27 +1201,27 @@ def modulo_edicion(spreadsheet):
                 val_psic_edit = st.selectbox("Valoración Psicología", options=sino_na,
                                              index=sino_na.index(registro.get("valoracion_psicologia", "NO"))
                                              if registro.get("valoracion_psicologia", "") in sino_na else 0,
-                                             key="edit_val_psic")
+                                             key=f"edit_val_psic{ks}")
                 fecha_psic_edit = st.date_input("Fecha Psicología",
                                                 value=parse_date_safe(registro.get("fecha_psicologia")),
-                                                key="edit_fecha_psic")
+                                                key=f"edit_fecha_psic{ks}")
             with col2:
                 val_psiq_edit = st.selectbox("Valoración Psiquiatría", options=sino_na,
                                              index=sino_na.index(registro.get("valoracion_psiquiatria", "NO"))
                                              if registro.get("valoracion_psiquiatria", "") in sino_na else 0,
-                                             key="edit_val_psiq")
+                                             key=f"edit_val_psiq{ks}")
                 fecha_psiq_edit = st.date_input("Fecha Psiquiatría",
                                                 value=parse_date_safe(registro.get("fecha_psiquiatria")),
-                                                key="edit_fecha_psiq")
+                                                key=f"edit_fecha_psiq{ks}")
 
             # ---- Seguimientos ----
             st.markdown("##### 📞 Seguimientos")
             seg1_edit = st.text_input("Seguimiento 1", value=str(registro.get("seguimiento_1", "")),
-                                      key="edit_seg1")
+                                      key=f"edit_seg1{ks}")
             seg2_edit = st.text_input("Seguimiento 2", value=str(registro.get("seguimiento_2", "")),
-                                      key="edit_seg2")
+                                      key=f"edit_seg2{ks}")
             seg3_edit = st.text_input("Seguimiento 3", value=str(registro.get("seguimiento_3", "")),
-                                      key="edit_seg3")
+                                      key=f"edit_seg3{ks}")
 
             # ---- Estado ----
             st.markdown("##### 📊 Estado y Seguimiento Post-Alta")
@@ -1234,27 +1236,27 @@ def modulo_edicion(spreadsheet):
                 ruta_edit = st.selectbox("¿En ruta de salud mental?", options=ruta_opts,
                                          index=ruta_opts.index(registro.get("ruta_salud_mental", "SI"))
                                          if registro.get("ruta_salud_mental", "") in ruta_opts else 0,
-                                         key="edit_ruta")
+                                         key=f"edit_ruta{ks}")
                 asiste_edit = st.selectbox("¿Asiste a servicios?", options=asiste_opts,
                                            index=asiste_opts.index(registro.get("asiste_servicios", "SI"))
                                            if registro.get("asiste_servicios", "") in asiste_opts else 0,
-                                           key="edit_asiste")
+                                           key=f"edit_asiste{ks}")
                 seg7_edit = st.selectbox("Seguimiento ≤7 días post alta", options=seg7_opts,
                                          index=seg7_opts.index(registro.get("seguimiento_7dias_postalta", "NO APLICA"))
                                          if registro.get("seguimiento_7dias_postalta", "") in seg7_opts else 0,
-                                         key="edit_seg7")
+                                         key=f"edit_seg7{ks}")
             with col2:
                 fecha_segpost_edit = st.date_input("Fecha seguimiento post-alta",
                                                     value=parse_date_safe(
                                                         registro.get("fecha_seguimiento_postalta")),
-                                                    key="edit_fecha_segpost")
+                                                    key=f"edit_fecha_segpost{ks}")
                 num_seg_edit = st.number_input("Nº seguimientos realizados", min_value=0, max_value=50,
                                                value=int(registro.get("num_seguimientos_realizados", 0) or 0),
-                                               key="edit_num_seg")
+                                               key=f"edit_num_seg{ks}")
                 abandono_edit = st.selectbox("¿Abandonó tratamiento?", options=abandono_opts,
                                              index=abandono_opts.index(registro.get("abandono_tratamiento", "NO"))
                                              if registro.get("abandono_tratamiento", "") in abandono_opts else 0,
-                                             key="edit_abandono")
+                                             key=f"edit_abandono{ks}")
 
             col1, col2 = st.columns(2)
             with col1:
@@ -1262,17 +1264,17 @@ def modulo_edicion(spreadsheet):
                                               index=reintento_opts.index(
                                                   registro.get("reintento_posterior", "NO"))
                                               if registro.get("reintento_posterior", "") in reintento_opts else 0,
-                                              key="edit_reintento")
+                                              key=f"edit_reintento{ks}")
             with col2:
                 estado_edit = st.selectbox("Estado del caso", options=ESTADOS_CASO,
                                            index=ESTADOS_CASO.index(registro.get("estado_caso", "ACTIVO"))
                                            if registro.get("estado_caso", "") in ESTADOS_CASO else 0,
-                                           key="edit_estado")
+                                           key=f"edit_estado{ks}")
 
             # ---- Observaciones ----
             st.markdown("##### 📝 Observaciones")
             obs_edit = st.text_area("Observaciones", value=str(registro.get("observaciones", "")),
-                                    height=120, key="edit_obs")
+                                    height=120, key=f"edit_obs{ks}")
 
             # ---- Guardar ----
             submitted_edit = st.form_submit_button("💾 Guardar Cambios", use_container_width=True, type="primary")
