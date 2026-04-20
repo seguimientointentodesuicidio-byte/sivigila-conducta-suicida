@@ -241,6 +241,8 @@ COLUMNAS_DATOS = [
     "seguimiento_7dias_postalta", "fecha_seguimiento_postalta",
     "num_seguimientos_realizados", "abandono_tratamiento",
     "reintento_posterior", "estado_caso", "observaciones",
+    "gp_discapacidad", "gp_desplazado", "gp_migrante",
+    "gp_gestante", "gp_desmovilizado", "gp_indigena",
     "ultima_modificacion_por", "ultima_modificacion_fecha"
 ]
 
@@ -702,6 +704,21 @@ def modulo_formulario(spreadsheet):
 
         st.markdown("---")
 
+        # ---- Sección: Grupo Poblacional ----
+        st.markdown(f"#### 👥 Grupo Poblacional")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            gp_discapacidad = st.selectbox("¿Persona con discapacidad?", options=["NO", "SI"])
+            gp_gestante = st.selectbox("¿Gestante?", options=["NO", "SI"])
+        with col2:
+            gp_desplazado = st.selectbox("¿Desplazado?", options=["NO", "SI"])
+            gp_desmovilizado = st.selectbox("¿Desmovilizado?", options=["NO", "SI"])
+        with col3:
+            gp_migrante = st.selectbox("¿Migrante?", options=["NO", "SI"])
+            gp_indigena = st.selectbox("¿Indígena?", options=["NO", "SI"])
+
+        st.markdown("---")
+
         # ---- Sección: Observaciones ----
         st.markdown(f"#### 📝 Observaciones y Trazabilidad")
         observaciones = st.text_area("Observaciones",
@@ -787,6 +804,12 @@ def modulo_formulario(spreadsheet):
                         "reintento_posterior": reintento,
                         "estado_caso": estado_caso,
                         "observaciones": observaciones,
+                        "gp_discapacidad": gp_discapacidad,
+                        "gp_desplazado": gp_desplazado,
+                        "gp_migrante": gp_migrante,
+                        "gp_gestante": gp_gestante,
+                        "gp_desmovilizado": gp_desmovilizado,
+                        "gp_indigena": gp_indigena,
                         "funcionario_reporta": st.session_state.get("nombre_completo", ""),
                     }
 
@@ -1271,6 +1294,38 @@ def modulo_edicion(spreadsheet):
                                            if registro.get("estado_caso", "") in ESTADOS_CASO else 0,
                                            key=f"edit_estado{ks}")
 
+            # ---- Grupo Poblacional ----
+            st.markdown("##### 👥 Grupo Poblacional")
+            sino_gp = ["NO", "SI"]
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                gp_disc_edit = st.selectbox("¿Persona con discapacidad?", options=sino_gp,
+                                            index=sino_gp.index(registro.get("gp_discapacidad", "NO"))
+                                            if registro.get("gp_discapacidad", "") in sino_gp else 0,
+                                            key=f"edit_gp_disc{ks}")
+                gp_gest_edit = st.selectbox("¿Gestante?", options=sino_gp,
+                                            index=sino_gp.index(registro.get("gp_gestante", "NO"))
+                                            if registro.get("gp_gestante", "") in sino_gp else 0,
+                                            key=f"edit_gp_gest{ks}")
+            with col2:
+                gp_despl_edit = st.selectbox("¿Desplazado?", options=sino_gp,
+                                             index=sino_gp.index(registro.get("gp_desplazado", "NO"))
+                                             if registro.get("gp_desplazado", "") in sino_gp else 0,
+                                             key=f"edit_gp_despl{ks}")
+                gp_desm_edit = st.selectbox("¿Desmovilizado?", options=sino_gp,
+                                            index=sino_gp.index(registro.get("gp_desmovilizado", "NO"))
+                                            if registro.get("gp_desmovilizado", "") in sino_gp else 0,
+                                            key=f"edit_gp_desm{ks}")
+            with col3:
+                gp_migr_edit = st.selectbox("¿Migrante?", options=sino_gp,
+                                            index=sino_gp.index(registro.get("gp_migrante", "NO"))
+                                            if registro.get("gp_migrante", "") in sino_gp else 0,
+                                            key=f"edit_gp_migr{ks}")
+                gp_ind_edit = st.selectbox("¿Indígena?", options=sino_gp,
+                                           index=sino_gp.index(registro.get("gp_indigena", "NO"))
+                                           if registro.get("gp_indigena", "") in sino_gp else 0,
+                                           key=f"edit_gp_ind{ks}")
+
             # ---- Observaciones ----
             st.markdown("##### 📝 Observaciones")
             obs_edit = st.text_area("Observaciones", value=str(registro.get("observaciones", "")),
@@ -1315,6 +1370,12 @@ def modulo_edicion(spreadsheet):
                     "reintento_posterior": reintento_edit,
                     "estado_caso": estado_edit,
                     "observaciones": obs_edit,
+                    "gp_discapacidad": gp_disc_edit,
+                    "gp_desplazado": gp_despl_edit,
+                    "gp_migrante": gp_migr_edit,
+                    "gp_gestante": gp_gest_edit,
+                    "gp_desmovilizado": gp_desm_edit,
+                    "gp_indigena": gp_ind_edit,
                 }
 
                 with st.spinner("Actualizando registro..."):
