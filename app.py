@@ -241,8 +241,6 @@ COLUMNAS_DATOS = [
     "seguimiento_7dias_postalta", "fecha_seguimiento_postalta",
     "num_seguimientos_realizados", "abandono_tratamiento",
     "reintento_posterior", "estado_caso", "observaciones",
-    "gp_discapacidad", "gp_desplazado", "gp_migrante",
-    "gp_gestante", "gp_desmovilizado", "gp_indigena",
     "ultima_modificacion_por", "ultima_modificacion_fecha"
 ]
 
@@ -704,21 +702,6 @@ def modulo_formulario(spreadsheet):
 
         st.markdown("---")
 
-        # ---- Sección: Grupo Poblacional ----
-        st.markdown(f"#### 👥 Grupo Poblacional")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            gp_discapacidad = st.selectbox("¿Persona con discapacidad?", options=["NO", "SI"])
-            gp_gestante = st.selectbox("¿Gestante?", options=["NO", "SI"])
-        with col2:
-            gp_desplazado = st.selectbox("¿Desplazado?", options=["NO", "SI"])
-            gp_desmovilizado = st.selectbox("¿Desmovilizado?", options=["NO", "SI"])
-        with col3:
-            gp_migrante = st.selectbox("¿Migrante?", options=["NO", "SI"])
-            gp_indigena = st.selectbox("¿Indígena?", options=["NO", "SI"])
-
-        st.markdown("---")
-
         # ---- Sección: Observaciones ----
         st.markdown(f"#### 📝 Observaciones y Trazabilidad")
         observaciones = st.text_area("Observaciones",
@@ -804,12 +787,6 @@ def modulo_formulario(spreadsheet):
                         "reintento_posterior": reintento,
                         "estado_caso": estado_caso,
                         "observaciones": observaciones,
-                        "gp_discapacidad": gp_discapacidad,
-                        "gp_desplazado": gp_desplazado,
-                        "gp_migrante": gp_migrante,
-                        "gp_gestante": gp_gestante,
-                        "gp_desmovilizado": gp_desmovilizado,
-                        "gp_indigena": gp_indigena,
                         "funcionario_reporta": st.session_state.get("nombre_completo", ""),
                     }
 
@@ -948,10 +925,14 @@ def modulo_dashboard(spreadsheet):
             if not df_filtrado.empty:
                 df_mun = df_filtrado["municipio_residencia"].value_counts().reset_index()
                 df_mun.columns = ["Municipio", "Casos"]
+                df_mun["Porcentaje"] = (df_mun["Casos"] / df_mun["Casos"].sum() * 100).round(1)
                 df_mun = df_mun.sort_values("Casos", ascending=True)
                 fig_mun = px.bar(df_mun, x="Casos", y="Municipio", orientation="h",
                                  title="Casos por Municipio",
-                                 color="Casos", color_continuous_scale="Reds")
+                                 color="Casos", color_continuous_scale="Reds",
+                                 text="Casos", custom_data=["Porcentaje"])
+                fig_mun.update_traces(textposition="outside",
+                                      hovertemplate="<b>%{y}</b><br>Casos: %{x}<br>Porcentaje: %{customdata[0]}%<extra></extra>")
                 fig_mun.update_layout(height=max(400, len(df_mun) * 28), showlegend=False,
                                       coloraxis_showscale=False)
                 st.plotly_chart(fig_mun, use_container_width=True)
@@ -961,9 +942,13 @@ def modulo_dashboard(spreadsheet):
             if not df_filtrado.empty:
                 df_eps = df_filtrado["eps_reporta"].value_counts().reset_index()
                 df_eps.columns = ["EPS", "Casos"]
+                df_eps["Porcentaje"] = (df_eps["Casos"] / df_eps["Casos"].sum() * 100).round(1)
                 fig_eps = px.bar(df_eps, x="EPS", y="Casos",
                                  title="Casos por EPS",
-                                 color="Casos", color_continuous_scale="Blues")
+                                 color="Casos", color_continuous_scale="Blues",
+                                 text="Casos", custom_data=["Porcentaje"])
+                fig_eps.update_traces(textposition="outside",
+                                      hovertemplate="<b>%{x}</b><br>Casos: %{y}<br>Porcentaje: %{customdata[0]}%<extra></extra>")
                 fig_eps.update_layout(xaxis_tickangle=-45, height=400, showlegend=False,
                                       coloraxis_showscale=False)
                 st.plotly_chart(fig_eps, use_container_width=True)
@@ -1001,18 +986,21 @@ def modulo_dashboard(spreadsheet):
             df_sem = df_sem.sort_values("semana_epidemiologica")
             fig_sem = px.line(df_sem, x="semana_epidemiologica", y="Casos",
                               title="Tendencia de Casos por Semana Epidemiológica",
-                              markers=True)
+                              markers=True, text="Casos")
+            fig_sem.update_traces(textposition="top center",
+                                  line_color=COLOR_AZUL_OSCURO, marker_color=COLOR_ROJO_ALERTA)
             fig_sem.update_layout(xaxis_title="Semana Epidemiológica", yaxis_title="Número de Casos")
-            fig_sem.update_traces(line_color=COLOR_AZUL_OSCURO, marker_color=COLOR_ROJO_ALERTA)
             st.plotly_chart(fig_sem, use_container_width=True)
 
         # Casos por estado
         if not df_filtrado.empty:
             df_estado = df_filtrado["estado_caso"].value_counts().reset_index()
             df_estado.columns = ["Estado", "Casos"]
+            df_estado["Porcentaje"] = (df_estado["Casos"] / df_estado["Casos"].sum() * 100).round(1)
             fig_estado = px.bar(df_estado, x="Estado", y="Casos",
                                 title="Distribución por Estado del Caso",
                                 color="Estado",
+                                text="Casos", custom_data=["Porcentaje"],
                                 color_discrete_map={
                                     "ACTIVO": "#F9A825",
                                     "CERRADO": "#4CAF50",
@@ -1021,6 +1009,8 @@ def modulo_dashboard(spreadsheet):
                                     "SIN CONTACTO": "#9E9E9E",
                                     "REMITIDO A OTRA EPS": "#FF9800"
                                 })
+            fig_estado.update_traces(textposition="outside",
+                                     hovertemplate="<b>%{x}</b><br>Casos: %{y}<br>Porcentaje: %{customdata[0]}%<extra></extra>")
             fig_estado.update_layout(showlegend=False)
             st.plotly_chart(fig_estado, use_container_width=True)
 
@@ -1294,38 +1284,6 @@ def modulo_edicion(spreadsheet):
                                            if registro.get("estado_caso", "") in ESTADOS_CASO else 0,
                                            key=f"edit_estado{ks}")
 
-            # ---- Grupo Poblacional ----
-            st.markdown("##### 👥 Grupo Poblacional")
-            sino_gp = ["NO", "SI"]
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                gp_disc_edit = st.selectbox("¿Persona con discapacidad?", options=sino_gp,
-                                            index=sino_gp.index(registro.get("gp_discapacidad", "NO"))
-                                            if registro.get("gp_discapacidad", "") in sino_gp else 0,
-                                            key=f"edit_gp_disc{ks}")
-                gp_gest_edit = st.selectbox("¿Gestante?", options=sino_gp,
-                                            index=sino_gp.index(registro.get("gp_gestante", "NO"))
-                                            if registro.get("gp_gestante", "") in sino_gp else 0,
-                                            key=f"edit_gp_gest{ks}")
-            with col2:
-                gp_despl_edit = st.selectbox("¿Desplazado?", options=sino_gp,
-                                             index=sino_gp.index(registro.get("gp_desplazado", "NO"))
-                                             if registro.get("gp_desplazado", "") in sino_gp else 0,
-                                             key=f"edit_gp_despl{ks}")
-                gp_desm_edit = st.selectbox("¿Desmovilizado?", options=sino_gp,
-                                            index=sino_gp.index(registro.get("gp_desmovilizado", "NO"))
-                                            if registro.get("gp_desmovilizado", "") in sino_gp else 0,
-                                            key=f"edit_gp_desm{ks}")
-            with col3:
-                gp_migr_edit = st.selectbox("¿Migrante?", options=sino_gp,
-                                            index=sino_gp.index(registro.get("gp_migrante", "NO"))
-                                            if registro.get("gp_migrante", "") in sino_gp else 0,
-                                            key=f"edit_gp_migr{ks}")
-                gp_ind_edit = st.selectbox("¿Indígena?", options=sino_gp,
-                                           index=sino_gp.index(registro.get("gp_indigena", "NO"))
-                                           if registro.get("gp_indigena", "") in sino_gp else 0,
-                                           key=f"edit_gp_ind{ks}")
-
             # ---- Observaciones ----
             st.markdown("##### 📝 Observaciones")
             obs_edit = st.text_area("Observaciones", value=str(registro.get("observaciones", "")),
@@ -1370,12 +1328,6 @@ def modulo_edicion(spreadsheet):
                     "reintento_posterior": reintento_edit,
                     "estado_caso": estado_edit,
                     "observaciones": obs_edit,
-                    "gp_discapacidad": gp_disc_edit,
-                    "gp_desplazado": gp_despl_edit,
-                    "gp_migrante": gp_migr_edit,
-                    "gp_gestante": gp_gest_edit,
-                    "gp_desmovilizado": gp_desm_edit,
-                    "gp_indigena": gp_ind_edit,
                 }
 
                 with st.spinner("Actualizando registro..."):
