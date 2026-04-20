@@ -1828,6 +1828,12 @@ def transformar_base(df, tipo_base):
             "reintento_posterior": "SIN INFORMACIÓN",
             "estado_caso": "ACTIVO",
             "observaciones": f"Carga masiva ({tipo_base}) - {datetime.now().strftime('%Y-%m-%d')}",
+            "gp_discapacidad": convertir_si_no(row.get("gp_discapa", ""), tipo_base == "SAT"),
+            "gp_desplazado": convertir_si_no(row.get("gp_desplaz", ""), tipo_base == "SAT"),
+            "gp_migrante": convertir_si_no(row.get("gp_migrant", ""), tipo_base == "SAT"),
+            "gp_gestante": convertir_si_no(row.get("gp_gestan", ""), tipo_base == "SAT"),
+            "gp_desmovilizado": convertir_si_no(row.get("gp_desmovi", ""), tipo_base == "SAT"),
+            "gp_indigena": convertir_si_no(row.get("gp_indige", ""), tipo_base == "SAT"),
             "ultima_modificacion_por": st.session_state.get("nombre_completo", ""),
             "ultima_modificacion_fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         }
