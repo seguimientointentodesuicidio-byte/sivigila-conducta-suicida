@@ -243,7 +243,16 @@ COLUMNAS_DATOS = [
     "reintento_posterior", "estado_caso", "observaciones",
     "gp_discapacidad", "gp_desplazado", "gp_migrante",
     "gp_gestante", "gp_desmovilizado", "gp_indigena",
+    "causa_fallecimiento",
     "ultima_modificacion_por", "ultima_modificacion_fecha"
+]
+
+# Opciones para causa de fallecimiento (solo aplica si estado_caso = FALLECIDO)
+CAUSAS_FALLECIMIENTO = [
+    "NO APLICA",
+    "SUICIDIO CONSUMADO",
+    "OTRA CAUSA",
+    "SIN INFORMACIÓN"
 ]
 
 # ============================================================
@@ -702,6 +711,13 @@ def modulo_formulario(spreadsheet):
         with col2:
             estado_caso = st.selectbox("Estado del caso *", options=ESTADOS_CASO)
 
+        # Causa de fallecimiento (solo relevante si estado = FALLECIDO, pero se muestra siempre)
+        causa_fallec = st.selectbox(
+            "Causa de fallecimiento (solo si estado = FALLECIDO)",
+            options=CAUSAS_FALLECIMIENTO,
+            help="Diligencie únicamente si el estado del caso es FALLECIDO."
+        )
+
         st.markdown("---")
 
         # ---- Sección: Grupo Poblacional ----
@@ -803,6 +819,7 @@ def modulo_formulario(spreadsheet):
                         "abandono_tratamiento": abandono,
                         "reintento_posterior": reintento,
                         "estado_caso": estado_caso,
+                        "causa_fallecimiento": causa_fallec if estado_caso == "FALLECIDO" else "NO APLICA",
                         "observaciones": observaciones,
                         "gp_discapacidad": gp_discapacidad,
                         "gp_desplazado": gp_desplazado,
@@ -853,6 +870,24 @@ def modulo_dashboard(spreadsheet):
         df["num_seguimientos_realizados"], errors="coerce").fillna(0).astype(int)
     df["semana_epidemiologica"] = pd.to_numeric(
         df["semana_epidemiologica"], errors="coerce").fillna(0).astype(int)
+
+    # --- Banner de alerta de fallecidos (visible para todos los roles, sobre sus propios datos) ---
+    n_fallecidos_total = len(df[df["estado_caso"].str.upper() == "FALLECIDO"])
+    if n_fallecidos_total > 0:
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #B71C1C, #D32F2F);
+                    color: white; padding: 1rem 1.5rem; border-radius: 10px;
+                    margin-bottom: 1rem; box-shadow: 0 4px 12px rgba(211,47,47,0.4);
+                    border-left: 8px solid #7F0000;">
+            <div style="font-size: 1.15rem; font-weight: 700;">
+                🚨 ALERTA CRÍTICA — {n_fallecidos_total} caso(s) FALLECIDO(S) registrado(s)
+            </div>
+            <div style="font-size: 0.9rem; margin-top: 0.3rem; opacity: 0.95;">
+                Personas con antecedente de intento de suicidio que fallecieron por cualquier causa.
+                Revise el detalle en la pestaña <strong>🚨 Alertas</strong>.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     # --- Filtros ---
     with st.expander("🔽 Filtros", expanded=False):
@@ -908,8 +943,10 @@ def modulo_dashboard(spreadsheet):
         (df_filtrado["estado_caso"].str.upper() == "ACTIVO") &
         (df_filtrado["num_seguimientos_realizados"] == 0)
     ])
+    fallecidos = len(df_filtrado[df_filtrado["estado_caso"].str.upper() == "FALLECIDO"])
+    pct_fallecidos = (fallecidos / total_casos * 100) if total_casos > 0 else 0
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         st.markdown(f"""
         <div class="kpi-card">
@@ -933,6 +970,12 @@ def modulo_dashboard(spreadsheet):
         <div class="kpi-card kpi-card-danger">
             <div class="kpi-value">{activos_sin_seg}</div>
             <div class="kpi-label">🚨 Activos sin seguimiento</div>
+        </div>""", unsafe_allow_html=True)
+    with col5:
+        st.markdown(f"""
+        <div class="kpi-card kpi-card-danger">
+            <div class="kpi-value">{fallecidos} <small style="font-size:0.5em;">({pct_fallecidos:.1f}%)</small></div>
+            <div class="kpi-label">⚰️ Fallecidos</div>
         </div>""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -1038,6 +1081,40 @@ def modulo_dashboard(spreadsheet):
             st.plotly_chart(fig_estado, use_container_width=True)
 
     with tab3:
+        # --- Tabla: Alerta CRÍTICA - Fallecidos (cualquier causa) ---
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #B71C1C, #D32F2F);
+                    color: white; padding: 0.9rem 1rem; border-radius: 0 8px 8px 0;
+                    border-left: 8px solid #7F0000; margin-bottom: 0.6rem;">
+            <strong>⚰️ ALERTA CRÍTICA — Pacientes FALLECIDOS (cualquier causa)</strong>
+            <div style="font-size: 0.85rem; opacity: 0.95; margin-top: 0.2rem;">
+                Personas con antecedente de intento de suicidio que fallecieron. Revisar historia clínica.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        df_fallecidos = df_filtrado[df_filtrado["estado_caso"].str.upper() == "FALLECIDO"]
+        if not df_fallecidos.empty:
+            cols_fallec = ["numero_documento", "nombres", "apellidos", "edad", "sexo",
+                           "municipio_residencia", "eps_reporta", "intento_previo",
+                           "fecha_notificacion_sivigila", "fecha_alta",
+                           "causa_fallecimiento", "observaciones"]
+            cols_disp_f = [c for c in cols_fallec if c in df_fallecidos.columns]
+            st.dataframe(df_fallecidos[cols_disp_f], use_container_width=True, hide_index=True)
+
+            # Desglose por EPS — solo para rol SECRETARIA
+            if st.session_state.get("rol") == "SECRETARIA":
+                st.markdown("**📋 Desglose por EPS:**")
+                df_eps_fallec = df_fallecidos["eps_reporta"].value_counts().reset_index()
+                df_eps_fallec.columns = ["EPS", "Nº de fallecidos"]
+                df_eps_fallec["% del total de fallecidos"] = (
+                    df_eps_fallec["Nº de fallecidos"] / df_eps_fallec["Nº de fallecidos"].sum() * 100
+                ).round(1).astype(str) + "%"
+                st.dataframe(df_eps_fallec, use_container_width=True, hide_index=True)
+        else:
+            st.info("Sin casos en este estado con los filtros actuales.")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
         # --- Tabla: Alerta Roja - Reincidentes ---
         st.markdown("""
         <div class="alerta-roja">
@@ -1307,6 +1384,16 @@ def modulo_edicion(spreadsheet):
                                            if registro.get("estado_caso", "") in ESTADOS_CASO else 0,
                                            key=f"edit_estado{ks}")
 
+            # Causa de fallecimiento (solo relevante si estado = FALLECIDO)
+            causa_fallec_edit = st.selectbox(
+                "Causa de fallecimiento (solo si estado = FALLECIDO)",
+                options=CAUSAS_FALLECIMIENTO,
+                index=CAUSAS_FALLECIMIENTO.index(registro.get("causa_fallecimiento", "NO APLICA"))
+                if registro.get("causa_fallecimiento", "") in CAUSAS_FALLECIMIENTO else 0,
+                help="Diligencie únicamente si el estado del caso es FALLECIDO.",
+                key=f"edit_causa_fallec{ks}"
+            )
+
             # ---- Grupo Poblacional ----
             st.markdown("##### 👥 Grupo Poblacional")
             sino_gp = ["NO", "SI"]
@@ -1382,6 +1469,7 @@ def modulo_edicion(spreadsheet):
                     "abandono_tratamiento": abandono_edit,
                     "reintento_posterior": reintento_edit,
                     "estado_caso": estado_edit,
+                    "causa_fallecimiento": causa_fallec_edit if estado_edit == "FALLECIDO" else "NO APLICA",
                     "observaciones": obs_edit,
                     "gp_discapacidad": gp_disc_edit,
                     "gp_desplazado": gp_despl_edit,
@@ -1834,6 +1922,7 @@ def transformar_base(df, tipo_base):
             "gp_gestante": convertir_si_no(row.get("gp_gestan", ""), tipo_base == "SAT"),
             "gp_desmovilizado": convertir_si_no(row.get("gp_desmovi", ""), tipo_base == "SAT"),
             "gp_indigena": convertir_si_no(row.get("gp_indige", ""), tipo_base == "SAT"),
+            "causa_fallecimiento": "NO APLICA",
             "ultima_modificacion_por": st.session_state.get("nombre_completo", ""),
             "ultima_modificacion_fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         }
